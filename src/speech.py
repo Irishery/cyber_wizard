@@ -1,11 +1,13 @@
 # speech_recognition.py
 import speech_recognition as sr
+from display import Display
 import requests
 from threading import Thread
+import pygame
 
 
 class SpeechRecognition:
-    def __init__(self, api_key, keyword, promt):
+    def __init__(self, api_key, keyword, promt, audio_server, display: Display):
         self.recognizer = sr.Recognizer()
         self.api_key = api_key  # OpenRouter API key
         # OpenRouter API endpoint
@@ -13,6 +15,23 @@ class SpeechRecognition:
         self.keyword = keyword
         self.stop_listening = False
         self.promt = promt
+        self.audio_server = audio_server
+        self.display = display
+
+    def run_audio(self, speech):
+        # audio = requests.get(self.audio_server + "/audio", params={
+        #                      "text": speech})
+
+        pygame.mixer.init()
+
+        pygame.mixer.music.load("audio/test.mp3")
+        pygame.mixer.music.play()
+
+        # Ждём окончания воспроизведения
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+
+        return audio.content
 
     def listen_keyword(self):
         with sr.Microphone() as source:
@@ -47,6 +66,12 @@ class SpeechRecognition:
                 # Обновляем интерфейс и управляем железом
                 if response_text:
                     print(f"Ответ от DeepSeek: {response_text}")
+                    print(response_text.split("emotion: ")[0])
+
+                    emotion = response_text.split("emotion: ")[1]
+                    self.display.set_action("happy")
+                    self.run_audio("test")
+
             except sr.UnknownValueError:
                 print("Не удалось распознать речь")
             except sr.RequestError as e:

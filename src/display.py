@@ -5,17 +5,32 @@ import threading
 import queue
 
 
+# Словарь действий, где ключ — название действия, а значение — путь к картинке
+ACTIONS = {
+    "neutral": "data/test.jpg",      # Спокойный
+    "happy": "data/download.jpeg",          # Радостный
+    "angry": "data/test.jpg",          # Злой
+    "surprised": "data/test.jpg",  # Удивлённый
+    "sad": "data/test.jpg",              # Грустный
+    "talking": "data/test.jpg",      # Говорит
+    "thinking": "data/test.jpg",    # Думает
+}
+
+
 class Display:
     def __init__(self, fps=20):
         self.app = Flask(__name__)
-        self.image_queue = queue.Queue(maxsize=1)  # Очередь для безопасной передачи изображений
+        # Очередь для безопасной передачи изображений
+        self.image_queue = queue.Queue(maxsize=1)
         self.current_image = None
+        self.current_action = None  # Текущее действие (название)
         self.sleep_time = 1.0 / fps
         self.lock = threading.Lock()
         self.running = True
 
         # Запускаем поток для обновления изображений
-        self.update_thread = threading.Thread(target=self._update_image_loop, daemon=True)
+        self.update_thread = threading.Thread(
+            target=self._update_image_loop, daemon=True)
         self.update_thread.start()
 
     def _update_image_loop(self):
@@ -37,17 +52,20 @@ class Display:
                            b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
             time.sleep(self.sleep_time)
 
-    def set_image(self, image_path: str):
-        img = cv2.imread(image_path)
-        if img is not None:
-            try:
-                # Неблокирующая попытка добавить изображение в очередь
-                self.image_queue.put_nowait(img)
-            except queue.Full:
-                # Если очередь полна, заменяем изображение
-                with self.image_queue.mutex:
-                    self.image_queue.queue.clear()
-                self.image_queue.put_nowait(img)
+    def set_action(self, action: str):
+        """Устанавливает изображение на основе действия"""
+        if action in ACTIONS:
+            img = cv2.imread(ACTIONS[action])
+            if img is not None:
+                try:
+                    self.image_queue.put_nowait(img)
+                    self.current_action = action
+                except queue.Full:
+                    with self.image_queue.mutex:
+                        self.image_queue.queue.clear()
+                    self.image_queue.put_nowait(img)
+        else:
+            print(f"Действие '{action}' не найдено!")
 
     def run(self):
         @self.app.route('/video_feed')
@@ -60,25 +78,3 @@ class Display:
     def stop(self):
         self.running = False
         self.update_thread.join()
-
-
-if __name__ == '__main__':
-    display = Display(fps=20)
-
-    # Запускаем сервер в отдельном потоке
-    server_thread = threading.Thread(target=display.run, daemon=True)
-    server_thread.start()
-
-    try:
-        # Устанавливаем первое изображение
-        display.set_image("data/test.jpg")
-        time.sleep(5)  # Ждем 5 секунд
-
-        # Меняем изображение
-        display.set_image("data/test2.jpg")
-
-        # Держим программу активной
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        display.stop()
