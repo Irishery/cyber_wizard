@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import threading
 import os
 import time
+# Импортируем наш класс FaceRecognition
+from camera import FaceRecognition
 
 load_dotenv()
 
@@ -31,6 +33,13 @@ def main():
     # Устанавливаем начальное состояние
     display.set_action("neutral")
 
+    # Инициализация FaceRecognition для распознавания конкретного человека
+    face_recognition = FaceRecognition(
+        known_person_folder="tarachkov_camera", tolerance=0.5)
+    face_recognition_thread = threading.Thread(
+        target=face_recognition.run, daemon=True)
+    face_recognition_thread.start()
+
     # Инициализация и запуск распознавания речи
     speech = SpeechRecognition(
         api_key=os.getenv("OPENROUTER_API_KEY"),
@@ -41,11 +50,16 @@ def main():
     )
     speech_thread = threading.Thread(
         target=speech.start_listening, daemon=True)
-    speech_thread.start()
+    speech_thread.start()  # Запускаем распознавание речи сразу
 
     try:
         # Основной цикл главного потока
         while True:
+            # Проверяем, распозналось ли лицо
+            if face_recognition.known_face_name != "Неизвестный":
+                print(f"Лицо распознано: {face_recognition.known_face_name}")
+                display.set_action("happy")  # Изменяем состояние Display
+
             # Здесь можно добавлять логику взаимодействия между модулями
             # Например, менять состояние Display в зависимости от событий SpeechRecognition
             time.sleep(1)

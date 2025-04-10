@@ -31,7 +31,7 @@ class SpeechRecognition:
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
 
-        return audio.content
+        return True
 
     def listen_keyword(self):
         with sr.Microphone() as source:
