@@ -16,6 +16,7 @@ class FaceRecognition:
         self.known_face_name = "Misha"  # По умолчанию имя неизвестно
         self.tolerance = tolerance
         self.load_known_faces(known_person_folder)
+        self.current_face_name = ""
 
     def load_known_faces(self, folder_path):
         """
@@ -76,6 +77,7 @@ class FaceRecognition:
                 self.known_face_encodings, face_encoding)
 
             name = "Unknown"
+            self.current_face_name = name
             color = (0, 0, 255)  # Красный цвет по умолчанию
 
             if face_distances.size > 0:
@@ -83,6 +85,7 @@ class FaceRecognition:
 
                 if matches[best_match_index]:
                     name = self.known_face_name
+                    self.current_face_name = name
                     color = (0, 255, 0)  # Зеленый цвет для известных лиц
 
             # Рисуем прямоугольник вокруг лица
@@ -106,7 +109,7 @@ class FaceRecognition:
         """
         Запуск системы распознавания лиц через веб-камеру.
         """
-        video_capture = cv2.VideoCapture(0)  # 0 — стандартная камера
+        video_capture = cv2.VideoCapture(4)  # 0 — стандартная камера
 
         while True:
             # Получаем кадр с камеры

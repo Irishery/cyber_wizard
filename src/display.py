@@ -4,16 +4,15 @@ import time
 import threading
 import queue
 
-
+# neutral happy angry surprised sad talking thinking
 # Словарь действий, где ключ — название действия, а значение — путь к картинке
 ACTIONS = {
-    "neutral": "data/test.jpg",      # Спокойный
-    "happy": "data/download.jpeg",          # Радостный
-    "angry": "data/test.jpg",          # Злой
-    "surprised": "data/test.jpg",  # Удивлённый
-    "sad": "data/test.jpg",              # Грустный
-    "talking": "data/test.jpg",      # Говорит
-    "thinking": "data/test.jpg",    # Думает
+    "neutral": "data/neutral.png",      # Спокойный
+    "happy": "data/happy.png",          # Радостный
+    "angry": "data/angry.png",          # Злой
+    "surprised": "data/surprised.png",  # Удивлённый
+    "sad": "data/sad.png",              # Грустный
+    "thinking": "data/thinking.png",    # Думает
 }
 
 
@@ -54,6 +53,7 @@ class Display:
 
     def set_action(self, action: str):
         """Устанавливает изображение на основе действия"""
+        print(ACTIONS[action])
         if action in ACTIONS:
             img = cv2.imread(ACTIONS[action])
             if img is not None:
