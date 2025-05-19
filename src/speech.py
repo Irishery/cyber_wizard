@@ -3,10 +3,10 @@ import speech_recognition as sr
 from display import Display
 from camera import FaceRecognition
 import requests
-from threading import Thread
 import pygame
 import pygame._sdl2.audio as sdl2_audio
 import time
+from pynput import keyboard  # Добавляем модуль для работы с клавиатурой
 
 supported_emotions = ["neutral", "happy",
                       "angry", "sad", "thinking", "surprised"]
@@ -23,22 +23,18 @@ def get_devices(capture_devices: bool = False):
 
 
 class SpeechRecognition:
-    def __init__(self, api_key, keyword, promt, audio_server, display: Display, face: FaceRecognition):
+    def __init__(self, api_key, promt, audio_server, display: Display, face: FaceRecognition):
         self.recognizer = sr.Recognizer()
         self.api_key = api_key  # OpenRouter API key
         # OpenRouter API endpoint
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
-        self.keyword = keyword
-        self.stop_listening = False
+        self.stop_listening_flag = False
         self.promt = promt
         self.audio_server = audio_server
         self.display = display
         self.face = face
 
     def run_audio(self, speech):
-        # audio = requests.get(self.audio_server + "/audio", params={
-        #                      "text": speech})
-
         response = requests.get(
             self.audio_server + "/govori",
             json={"text": speech, "language": "ru"}
@@ -60,98 +56,79 @@ class SpeechRecognition:
 
         return True
 
-    def listen_keyword(self):
+    def listen_for_spacebar(self):
         print(get_devices())
-        print("asd")
+        print("Ожидание нажатия пробела...")
         self.display.set_action("neutral")
-        if self.face.current_face_name == "Misha":
-            self.display.set_action("suprised")
-            self.run_audio("АФИГЕТЬ КАК ТЫ ПОХОЖ НА МЕНЯ")
-        with sr.Microphone(device_index=5) as source:
-            print("Ожидание ключевого слова...")
-            print(sr.Microphone.list_microphone_names())
-            while not self.stop_listening:
-                audio = self.recognizer.listen(source, phrase_time_limit=2)
-                try:
-                    print("FLAGFLAG")
-                    self.display.set_action("neutral")
-                    if self.face.current_face_name == "Misha":
-                        print("FLAG")
-                        self.display.set_action("surprised")
-                        time.sleep(2)
-                        self.run_audio("АФИГЕТЬ КАК ТЫ ПОХОЖ НА МЕНЯ")
-                        self.face.current_face_name = "Unknown"
-                        time.sleep(2)
-                    print("flag1")
-                    # Локальное распознавание ключевого слова через Google
-                    text = self.recognizer.recognize_google(
-                        audio, language='ru-RU')
-                    print("flag2")
-                    if self.keyword in text.lower():
-                        self.display.set_action("thinking")
-                        print(f"Ключевое слово '{self.keyword}' обнаружено!")
-                        self.on_keyword_detected()
-                    print("flag3")
-                except sr.UnknownValueError:
-                    next
-                except sr.RequestError as e:
-                    print(f"Ошибка сервиса распознавания речи: {e}")
-
-    def on_keyword_detected(self):
         # if self.face.current_face_name == "Misha":
         #     self.display.set_action("suprised")
         #     self.run_audio("АФИГЕТЬ КАК ТЫ ПОХОЖ НА МЕНЯ")
 
+        with sr.Microphone(device_index=6) as source:
+            while not self.stop_listening_flag:
+                print("Нажмите пробел для активации микрофона...")
+                with keyboard.Events() as events:
+
+                    # Ожидаем событие нажатия клавиши
+                    event = events.get()  # Блокирующий вызов
+                    if event.key == keyboard.Key.space and isinstance(event, keyboard.Events.Press):
+                        print("Пробел нажат!")
+                        self.display.set_action("thinking")
+                        self.on_keyword_detected(source)
+                        # Чтобы избежать множественных срабатываний
+
+    def on_keyword_detected(self, source):
         self.display.set_action("thinking")
-        time.sleep(1)
-        with sr.Microphone() as source:
-            print("Слушаю...")
-            audio = self.recognizer.listen(source, phrase_time_limit=10)
-            try:
-                # Локальное распознавание текста через Google
-                user_text = self.recognizer.recognize_google(
-                    audio, language='ru-RU')
-                print(f"Вы сказали: {user_text}")
+        pygame.mixer.init(
+            devicename="Family 17h/19h HD Audio Controller Speaker + Headphones")
 
-                # Отправляем распознанный текст в OpenRouter API (DeepSeek)
-                response_text = self.send_to_deepseek(user_text)
+        pygame.mixer.music.load("audio/I_listen2.wav")
+        pygame.mixer.music.play()
 
-                # Обновляем интерфейс и управляем железом
-                if response_text:
-                    print(f"Ответ от DeepSeek: {response_text}")
-                    print(response_text)
-                    print("--------")
-                    print(response_text.split("text: ")
-                          [1].split("emotion: ")[0])
-                    print(response_text.split("emotion: ")[1])
-                    print("--------")
-                    try:
-                        emotion = response_text.split("emotion: ")[1]
-                        speech = response_text.split(
-                            "text: ")[1].split("emotion: ")[0]
-                        print(speech)
-                        # print(response_text.split("text: "))
-                        print("EMOTION ", emotion)
-                        if emotion not in supported_emotions:
-                            emotion = "neutral"
-                        self.display.set_action(emotion)
-                        time.sleep(2)
-                        # if self.face.current_face_name == "Misha":
-                        #     print("POHOZH")
-                        #     self.display.set_action("surprised")
-                        #     self.run_audio(
-                        #         "*Говорящий очень похож на тебя* " + speech)
+        # Ждём окончания воспроизведения
+        while pygame.mixer.music.get_busy():
+            pygame.time.Clock().tick(10)
+        time.sleep(0.5)
+        print("Слушаю...")
+        audio = self.recognizer.listen(source, phrase_time_limit=5)
+        try:
+            # Локальное распознавание текста через Google
+            user_text = self.recognizer.recognize_google(
+                audio, language='ru-RU')
+            print(f"Вы сказали: {user_text}")
 
-                        self.run_audio(speech)
-                    except IndexError:
-                        self.run_audio("Повтори пожалуйста")
-                    self.display.set_action("neutral")
-            except sr.UnknownValueError:
-                print("Не удалось распознать речь")
+            # Отправляем распознанный текст в OpenRouter API (DeepSeek)
+            response_text = self.send_to_deepseek(user_text)
+
+            # Обновляем интерфейс и управляем железом
+            if response_text:
+                print(f"Ответ от DeepSeek: {response_text}")
+                print(response_text)
+                print("--------")
+                print(response_text.split("text: ")
+                      [1].split("emotion: ")[0])
+                print(response_text.split("emotion: ")[1])
+                print("--------")
+                try:
+                    emotion = response_text.split("emotion: ")[1]
+                    speech = response_text.split(
+                        "text: ")[1].split("emotion: ")[0]
+                    print(speech)
+                    print("EMOTION ", emotion)
+                    if emotion not in supported_emotions:
+                        emotion = "neutral"
+                    self.display.set_action(emotion)
+                    time.sleep(2)
+                    self.run_audio(speech)
+                except IndexError:
+                    self.run_audio("Повтори пожалуйста")
                 self.display.set_action("neutral")
-            except sr.RequestError as e:
-                print(f"Ошибка сервиса распознавания речи: {e}")
-                self.display.set_action("neutral")
+        except sr.UnknownValueError:
+            print("Не удалось распознать речь")
+            self.display.set_action("neutral")
+        except sr.RequestError as e:
+            print(f"Ошибка сервиса распознавания речи: {e}")
+            self.display.set_action("neutral")
 
     def send_to_deepseek(self, text):
         headers = {
@@ -182,11 +159,8 @@ class SpeechRecognition:
             return None
 
     def start_listening(self):
-        self.stop_listening = False
-        self.thread = Thread(target=self.listen_keyword)
-        self.thread.start()
+        self.stop_listening_flag = False
+        self.listen_for_spacebar()
 
     def stop_listening(self):
-        self.stop_listening = True
-        if hasattr(self, 'thread') and self.thread.is_alive():
-            self.thread.join()
+        self.stop_listening_flag = True

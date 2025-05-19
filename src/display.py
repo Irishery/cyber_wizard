@@ -17,7 +17,7 @@ ACTIONS = {
 
 
 class Display:
-    def __init__(self, fps=20):
+    def __init__(self, fps=500):
         self.app = Flask(__name__)
         # Очередь для безопасной передачи изображений
         self.image_queue = queue.Queue(maxsize=1)

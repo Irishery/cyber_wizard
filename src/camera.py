@@ -1,11 +1,13 @@
 import cv2
 import face_recognition
+from display import Display
 import numpy as np
 import os
+import pygame
 
 
 class FaceRecognition:
-    def __init__(self, known_person_folder="data", tolerance=0.5):
+    def __init__(self, known_person_folder="data", tolerance=0.5, display: Display = None):
         """
         Инициализация класса FaceRecognition.
 
@@ -17,6 +19,8 @@ class FaceRecognition:
         self.tolerance = tolerance
         self.load_known_faces(known_person_folder)
         self.current_face_name = ""
+        self.display = display
+        self.pohozh = False
 
     def load_known_faces(self, folder_path):
         """
@@ -86,7 +90,22 @@ class FaceRecognition:
                 if matches[best_match_index]:
                     name = self.known_face_name
                     self.current_face_name = name
-                    color = (0, 255, 0)  # Зеленый цвет для известных лиц
+                    if self.current_face_name == "Misha" and not self.pohozh:
+                        self.display.set_action("surprised")
+                        self.pohozh = True
+                        pygame.mixer.init(
+                            devicename="Family 17h/19h HD Audio Controller Speaker + Headphones")
+
+                        pygame.mixer.music.load("audio/Whatdahell.wav")
+                        pygame.mixer.music.play()
+
+        # Ждём окончания воспроизведения
+                        while pygame.mixer.music.get_busy():
+                            pygame.time.Clock().tick(10)
+                            # Зеленый цвет для известных лиц
+                            color = (0, 255, 0)
+
+                        self.display.set_action("neutral")
 
             # Рисуем прямоугольник вокруг лица
             cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
